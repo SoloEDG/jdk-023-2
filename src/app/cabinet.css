@@ -246,6 +246,49 @@ button:focus-visible, canvas:focus-visible {
 
 .history-list li span { color: #5c3b2e; }
 
+.slot-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slot-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #ead7b6;
+  font-size: 13px;
+}
+
+.slot-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.slot-text span { color: #5c3b2e; }
+
+.slot-bad { color: #c81d3a !important; }
+
+.slot-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.slot-key {
+  border: 1px solid #d7b98a;
+  background: #f3e2c4;
+  color: #24140f;
+  min-width: 52px;
+  min-height: 36px;
+  padding: 4px 8px;
+}
+
+.slot-key:disabled { opacity: 0.45; cursor: not-allowed; }
+
 .result-card h2 { font-size: 36px; color: #c81d3a; }
 
 .lockbar {

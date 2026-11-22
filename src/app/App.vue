@@ -6,6 +6,7 @@ import { createDocument } from '@/shared/document'
 import { BonusBanner, ChainMeter } from '@/features/bonus'
 import { ControlDeck, TiltLamp } from '@/features/flippers'
 import { ChallengeBoard, HistoryList, readSave, ResultCard } from '@/features/records'
+import { SaveSlotPanel } from '@/features/saves'
 import { EventTicker, ScoreHud } from '@/features/scoring'
 import { MechanismPanel, mountFresh, TableView } from '@/features/table'
 
@@ -61,6 +62,7 @@ function onPlunger(down: boolean): void {
           <EventTicker :doc="doc" />
           <ChallengeBoard :doc="doc" />
           <MechanismPanel :doc="doc" />
+          <SaveSlotPanel :doc="doc" />
           <HistoryList :doc="doc" />
         </aside>
       </section>

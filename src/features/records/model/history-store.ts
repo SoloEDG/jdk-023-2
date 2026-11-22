@@ -1,102 +1,49 @@
-import { STORAGE_KEY } from '@/shared/ids'
 import {
-  defaultCareer,
   flashNote,
-  type CareerState,
-  type HistoryEntry,
   type PinballDocument,
 } from '@/shared/document'
+import { emptyBlob, readBlob, writeBlob, type SaveBlobV2 } from '@/shared/save-blob'
 import type { KeptRecords } from '@/features/table'
 import { latchCareer } from '@/features/records/model/challenge-rules'
-
-interface SaveBlob {
-  version: 1
-  bestScore: number
-  career: CareerState
-  history: HistoryEntry[]
-}
-
-function storage(): Storage | null {
-  try {
-    if (typeof localStorage === 'undefined') return null
-    return localStorage
-  } catch {
-    return null
-  }
-}
 
 function makeId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-function parseCareer(value: unknown): CareerState {
-  const career = defaultCareer()
-  if (!value || typeof value !== 'object') return career
-  const raw = value as Partial<CareerState>
-  career.score10k = raw.score10k === true
-  career.bonusOnce = raw.bonusOnce === true
-  career.bankTwice = raw.bankTwice === true
-  career.cleanFinish = raw.cleanFinish === true
-  return career
-}
-
-function parseEntry(value: unknown): HistoryEntry | null {
-  if (!value || typeof value !== 'object') return null
-  const raw = value as Partial<HistoryEntry>
-  if (typeof raw.id !== 'string' || typeof raw.score !== 'number' || !Number.isFinite(raw.score)) return null
-  return {
-    id: raw.id,
-    endedAt: typeof raw.endedAt === 'number' ? raw.endedAt : 0,
-    score: raw.score,
-    playMs: typeof raw.playMs === 'number' ? raw.playMs : 0,
-    abandoned: raw.abandoned === true,
-    tilted: raw.tilted === true,
-    bonusEntries: typeof raw.bonusEntries === 'number' ? raw.bonusEntries : 0,
-    bankClears: typeof raw.bankClears === 'number' ? raw.bankClears : 0,
-    cleanFinish: raw.cleanFinish === true,
-  }
-}
-
 export function emptyKept(): KeptRecords {
-  return { career: defaultCareer(), history: [], bestScore: 0 }
+  const blob = emptyBlob()
+  return { career: blob.career, history: blob.history, bestScore: blob.bestScore }
 }
 
 export function readSave(): KeptRecords {
-  const bin = storage()
-  if (!bin) return emptyKept()
-  try {
-    const text = bin.getItem(STORAGE_KEY)
-    if (!text) return emptyKept()
-    const parsed = JSON.parse(text) as Partial<SaveBlob>
-    if (parsed.version !== 1) return emptyKept()
-    const history = Array.isArray(parsed.history) ? parsed.history.map(parseEntry).filter((item) => item !== null) : []
-    return {
-      career: parseCareer(parsed.career),
-      history,
-      bestScore: typeof parsed.bestScore === 'number' && parsed.bestScore > 0 ? parsed.bestScore : 0,
-    }
-  } catch {
-    return emptyKept()
+  const { blob } = readBlob()
+  if (!blob) return emptyKept()
+  return { career: blob.career, history: blob.history, bestScore: blob.bestScore }
+}
+
+function writeThrough(doc: PinballDocument, blob: SaveBlobV2): void {
+  if (writeBlob(blob)) return
+  if (!doc.run.storageWarned) {
+    doc.run.storageWarned = true
+    flashNote(doc, '这台浏览器没能写下记录')
   }
 }
 
 export function persist(doc: PinballDocument): void {
-  const bin = storage()
-  if (!bin) return
-  const blob: SaveBlob = {
-    version: 1,
-    bestScore: Math.max(doc.bestScore, doc.score),
-    career: doc.career,
-    history: doc.history,
-  }
-  try {
-    bin.setItem(STORAGE_KEY, JSON.stringify(blob))
-  } catch {
+  const raw = readBlob()
+  // 磁盘上的数据读不懂或版本对不上时，不能用我们的新结构把它整份盖掉
+  if (!raw.ok) {
     if (!doc.run.storageWarned) {
       doc.run.storageWarned = true
-      flashNote(doc, '这台浏览器没能写下记录')
+      flashNote(doc, '存档读不出来，拒绝覆盖旧记录')
     }
+    return
   }
+  const blob = raw.blob ?? emptyBlob()
+  blob.bestScore = Math.max(doc.bestScore, doc.score)
+  blob.career = { ...doc.career }
+  blob.history = doc.history.map((entry) => ({ ...entry }))
+  writeThrough(doc, blob)
 }
 
 export function commitSession(doc: PinballDocument, abandoned: boolean): void {
